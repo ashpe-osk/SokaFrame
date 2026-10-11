@@ -1,0 +1,8 @@
+# Ultralytics YOLO tracker settings
+tracker_type: classbytetrack
+track_high_thresh: 0.50
+track_low_thresh: 0.10
+new_track_thresh: 0.60
+track_buffer: 120
+match_thresh: 0.80
+fuse_score: False

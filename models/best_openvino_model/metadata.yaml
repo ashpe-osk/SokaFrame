@@ -1,0 +1,27 @@
+description: Ultralytics YOLOv5x model trained on /content/football-players-detection-1/data.yaml
+author: Ultralytics
+date: '2026-10-10T01:51:48.577504+03:00'
+version: 8.4.175
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+head: Detect
+batch: 1
+imgsz:
+- 384
+- 384
+names:
+  0: ball
+  1: goalkeeper
+  2: player
+  3: referee
+args:
+  data: null
+  batch: 1
+  fraction: 1.0
+  quantize: null
+  nms: null
+  dynamic: false
+channels: 3
+end2end: false

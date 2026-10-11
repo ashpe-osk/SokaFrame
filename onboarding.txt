@@ -1,0 +1,460 @@
+OMNIBOARD-SPORTZ - ZIP RECIPIENT ONBOARDING
+==========================================
+
+This guide is for running the supplied ZIP on Windows, macOS, or Linux.
+It assumes the ZIP contains the complete project bundle and that you have
+extracted it to a folder you can write to. Keep the folder structure intact.
+
+There are two ways to run it:
+
+  * The root video-analysis command line is the quickest way to analyze a
+    video. Start with section 3.
+  * The OmniBoard web app and API are set up in sections 4 and 5. To process
+    uploaded videos through the web app, also follow section 6.
+
+IMPORTANT: THE ZIP IS NOT A PORTABLE INSTALLATION
+------------------------------------------------
+
+Yes, create fresh virtual environments on the recipient's computer. Do not
+copy virtual environments from the ZIP or from another computer: they contain
+OS-specific executables and paths.
+
+This project uses two separate Python environments:
+
+  * Backend/API: Python 3.14 or newer, managed by uv in omniBoard/.venv.
+  * CV engine: Python 3.10, in a separate environment at the project root.
+
+The environment folders are created locally on the recipient's computer.
+They do not need to activate the backend environment; `uv run` selects it.
+The CV environment must be activated when installing/running CV commands.
+
+The client-ready ZIP contains the application source, migrations, frontend
+assets, model weights, dependency files, and this guide. Keep the root
+analysis files, the omniBoard folder, and OmniBoard-Frontend~ together. The
+bundle does not contain virtual environments (.venv, .venv-1, or similar),
+node_modules, local databases, local-data, uploaded videos, or generated
+analysis output. Never add a private omniBoard/.env file. You need to supply
+a video file to analyze; sample videos are not included.
+
+The commands below use this checkout's folder name,
+`omniBoard-Sportz-client`, under your Downloads folder. If you extracted it
+somewhere else, change the root path in each `cd`/`Set-Location` command to
+that actual location.
+
+1. CHECK THE EXTRACTED BUNDLE
+=============================
+
+The extracted root must contain at least:
+
+  main.py
+  models/best.pt
+  requirements.txt
+  omniBoard/uv.lock
+  omniBoard/.env.example
+  omniBoard/backend/pyproject.toml
+  omniBoard/backend/alembic.ini
+  OmniBoard-Frontend~/frontend/index.html
+  OmniBoard-Frontend~/frontend/css/tokens.css
+  OmniBoard-Frontend~/frontend/css/base.css
+  OmniBoard-Frontend~/frontend/js/bootstrap.js
+  OmniBoard-Frontend~/frontend/js/core/theme.js
+
+If files are missing, ask the sender for a complete ZIP before proceeding.
+If best.pt is missing or is only an LFS pointer, ask the sender to provide
+the actual model weights. A recipient of a ZIP does not need Git or Git LFS
+unless they choose to obtain missing files from the repositories. Use a short
+video you have permission to process.
+
+2. INSTALL PREREQUISITES
+========================
+
+Required for local setup:
+
+  * uv, which installs/manages the backend and CV Python versions.
+  * An internet connection for the first dependency/environment setup.
+  * A browser if you want to use the web interface.
+
+The intended browser UI is the standalone static HTML/JavaScript bundle in
+`OmniBoard-Frontend~`, not the Vite app under `omniBoard/frontend`.
+Node.js/npm are NOT required to use it. The default database is SQLite;
+PostgreSQL and Docker are NOT required.
+
+FFmpeg and ffprobe are required for uploaded-video processing by the worker.
+They are not needed for a normal root command-line analysis run, to open the
+UI, or to check the API.
+
+Windows PowerShell:
+
+  Install uv (if it is not already installed):
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+  Close and reopen PowerShell, then check:
+    uv --version
+
+  Only if you intend to process web uploads, install FFmpeg:
+    winget install --id Gyan.FFmpeg.Shared --exact
+    ffmpeg -version
+    ffprobe -version
+
+macOS Terminal:
+
+  Install Homebrew first if needed: https://brew.sh/
+  Then run:
+    brew install uv
+    uv --version
+  Only if you intend to process web uploads:
+    brew install ffmpeg
+    ffmpeg -version
+    ffprobe -version
+
+Linux Terminal (Debian/Ubuntu example):
+
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv --version
+  Only if you intend to process web uploads:
+    sudo apt update
+    sudo apt install -y ffmpeg
+    ffmpeg -version
+    ffprobe -version
+
+For a different Linux distribution, install uv and FFmpeg using that
+distribution's official package instructions. Close and reopen the terminal
+if the `uv`, `ffmpeg`, or `ffprobe` commands are not found.
+
+3. RUN THE ROOT VIDEO ANALYZER
+==============================
+
+This is the shortest path to analyze a video. The repository includes the
+YOLO weights at `models/best.pt`, but does not include the README's example
+videos. Supply your own short MP4/MOV/AVI video for this smoke test.
+
+Create a separate Python 3.10 environment at the extracted project root.
+Create it once; do not copy it from another computer.
+
+Windows PowerShell:
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client"
+    uv python install 3.10
+    if (-not (Test-Path -LiteralPath .venv-1\Scripts\python.exe)) { uv venv --python 3.10 .venv-1 }
+    .\.venv-1\Scripts\Activate.ps1
+    python --version
+
+macOS/Linux Terminal:
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client"
+    uv python install 3.10
+    test -x .venv-1/bin/python || uv venv --python 3.10 .venv-1
+    source .venv-1/bin/activate
+    python --version
+
+Both commands should report Python 3.10.
+
+Then, still from the project root and with `.venv-1` active:
+
+    uv pip install -r requirements.txt
+
+Install PyTorch and torchvision for your operating system and hardware.
+While the CV environment is active, use the installation command from
+https://pytorch.org/get-started/locally/ and run the same package names and
+index options with `uv pip install` so it installs into the active
+environment. Do this after the requirements above because their PyTorch
+entries are unpinned and may select a different build. The root requirements
+do not have a lockfile, so dependency versions may vary.
+
+    python -c "import cv2, numpy, scipy, torch, torchvision, ultralytics, yaml; print('torch', torch.__version__, 'cuda', torch.cuda.is_available()); print('ultralytics', ultralytics.__version__)"
+
+Copy a short video you have permission to process into the project. These
+commands create `data` if needed:
+
+Windows PowerShell:
+
+    New-Item -ItemType Directory -Force data | Out-Null
+    Copy-Item -LiteralPath "C:\path\to\your-short-video.mp4" -Destination "data\client_smoke_test.mp4"
+
+macOS/Linux Terminal:
+
+    mkdir -p data
+    cp "/path/to/your-short-video.mp4" data/client_smoke_test.mp4
+
+Run the bounded CPU smoke test from the project root:
+
+    python main.py --video data/client_smoke_test.mp4 --model models/best.pt --output-dir output --max-frames 30 --backend cpu --device cpu --progress-every 0
+
+It should create a new `output/run_N` directory containing a non-empty
+`tracked.mp4` and `observations.csv`. `--max-frames 30` bounds this initial
+test; omit it to process the entire video. The default input path
+(`data/vid_for_data_15s.mp4`) is not included in the bundle, so pass
+`--video` or set `FOOTBALL_VIDEO` to a real video path. To use an NVIDIA GPU,
+install a compatible CUDA-enabled PyTorch build before selecting
+`--backend cuda`. OpenVINO is optional and can be installed with
+`uv pip install -r requirements-openvino.txt` while `.venv-1` is active.
+
+4. SET UP THE BACKEND (ONE TIME)
+================================
+
+Open a terminal and change to the extracted project root.
+
+Windows PowerShell (edit this path if you extracted the ZIP elsewhere):
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client\omniBoard"
+
+macOS/Linux Terminal (edit this path if you extracted the ZIP elsewhere):
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client/omniBoard"
+
+Install the locked backend dependencies and Python runtime:
+
+    uv sync --frozen --package app
+
+This creates the backend environment at omniBoard/.venv. Check which
+interpreter uv selects:
+
+    uv run --package app python --version
+
+It must report Python 3.14 or newer. Do not activate the project-root CV
+environment when installing or running backend commands.
+
+Create the private backend settings file once. Do not replace an existing
+.env file. Run these commands from the omniBoard directory:
+
+Windows PowerShell:
+
+    if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
+    notepad .env
+
+macOS/Linux Terminal:
+
+    test -f .env || cp .env.example .env
+    # Open .env in a text editor.
+
+In omniBoard/.env:
+
+  * Set SECRET_KEY to a new, long, random value.
+  * Set FIRST_SUPERUSER to the recipient's administrator email address.
+  * Set FIRST_SUPERUSER_PASSWORD to a unique, strong password.
+  * Keep FASTAPI_ENV=development for this local setup.
+  * Leave DATABASE_URL=sqlite:///./sql_app.db and
+    LOCAL_DATA_DIR=local-data for the default local setup.
+  * Set CV_REPO_ROOT and CV_PYTHON_EXECUTABLE to paths on this computer;
+    the one-command web-app launcher starts the analysis worker every time.
+  * Do not share the resulting .env file or commit it.
+
+Generate a secret value (run from omniBoard after `uv sync`):
+
+    uv run --package app python -c "import secrets; print(secrets.token_urlsafe(48))"
+
+Copy the printed value into SECRET_KEY in .env. Set a different password in
+FIRST_SUPERUSER_PASSWORD. Do not use the example placeholders for a shared
+or internet-accessible deployment.
+
+Run the initial SQLite migrations from `omniBoard/backend`. If your prompt
+shows the CV environment `(.venv-1)`, run `deactivate` first or open a fresh
+PowerShell terminal. The backend uses its own environment through `uv`.
+
+Windows PowerShell:
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client\omniBoard\backend"
+    $env:DATABASE_URL = "sqlite:///./sql_app.db"
+    uv run alembic upgrade head
+
+macOS/Linux Terminal:
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client/omniBoard/backend"
+    export DATABASE_URL="sqlite:///./sql_app.db"
+    uv run alembic upgrade head
+
+The database is created locally at omniBoard/backend/sql_app.db. Back it up
+before any future migration if it contains customer data.
+
+5. START THE WEB APPLICATION
+============================
+
+After completing the one-time setup above, start the API and standalone
+frontend with one command from Windows PowerShell at the project root:
+
+    .\start-local.ps1
+
+This convenience launcher is for Windows PowerShell. On macOS/Linux, use the
+manual terminal commands below.
+
+The launcher checks uv, the frontend bundle, and the required non-placeholder
+settings in `omniBoard/.env`, the CV 3.10 interpreter/model, and FFmpeg and
+ffprobe. It applies database migrations, starts the API in a new PowerShell
+window, waits for its health check, starts the analysis worker in another
+window, and waits for its ready message before it starts the frontend. The
+worker window stays open and automatically retries if the worker process
+exits unexpectedly. After the frontend responds, it opens the web app in your
+default browser and prints the service URLs:
+
+  * Web app: http://127.0.0.1:5174/
+  * API docs: http://127.0.0.1:8000/docs
+
+Use Ctrl+C in each API, worker, or frontend window to stop it. The launcher
+does not install dependencies, generate secrets, or replace `.env`; finish the
+setup in sections 2, 4, and 6 first. It uses `uv run --no-sync` for backend
+commands to avoid dependency synchronization during normal startup. If the
+worker cannot start, the launcher reports failure instead of announcing the
+application ready; check the worker window for its error. Leave the worker
+window open while using uploads; Ctrl+C there stops its automatic restart loop.
+
+The old `-WithWorker` argument is still accepted for compatibility, but is no
+longer needed. The worker always starts so uploaded analyses are not silently
+left queued because it was omitted.
+
+The commands below are the manual alternative if you need to run services
+yourself or troubleshoot the launcher.
+
+TERMINAL 1 - BACKEND API
+------------------------
+
+Windows PowerShell:
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client\omniBoard\backend"
+    $env:DATABASE_URL = "sqlite:///./sql_app.db"
+    $env:PYTHONUTF8 = "1"
+    uv run python -m fastapi run app/main.py --host 127.0.0.1 --port 8000
+
+macOS/Linux Terminal:
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client/omniBoard/backend"
+    export DATABASE_URL="sqlite:///./sql_app.db"
+    export PYTHONUTF8=1
+    uv run python -m fastapi run app/main.py --host 127.0.0.1 --port 8000
+
+Use the module form `uv run python -m fastapi`, not `uv run fastapi`.
+This module form avoids uv script-path issues on some Windows setups.
+
+In another terminal, check API health:
+
+Windows PowerShell:
+
+    Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/utils/health-check/"
+
+macOS/Linux Terminal:
+
+    curl --fail http://127.0.0.1:8000/api/v1/utils/health-check/
+
+The health endpoint should return `true`. API documentation is at
+http://127.0.0.1:8000/docs.
+
+TERMINAL 2 - `OmniBoard-Frontend~` STATIC WEB UI
+------------------------------------------------
+
+The bundle's `frontend` subfolder contains `index.html` and is the document
+root to serve. Do not start the Vite app from `omniBoard/frontend`.
+
+Windows PowerShell:
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client"
+    uv run --no-project --python 3.14 python -m http.server 5174 --bind 127.0.0.1 --directory "OmniBoard-Frontend~/frontend"
+
+macOS/Linux Terminal:
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client"
+    uv run --no-project --python 3.14 python -m http.server 5174 --bind 127.0.0.1 --directory 'OmniBoard-Frontend~/frontend'
+
+Open http://127.0.0.1:5174/ in the browser. The CV analysis page is at
+http://127.0.0.1:5174/cv-analysis.html. Use 127.0.0.1 consistently for the
+browser and API. This local static frontend has no npm install or production
+build step. Sign in with the FIRST_SUPERUSER email and
+FIRST_SUPERUSER_PASSWORD configured in `omniBoard/.env`.
+
+When starting services manually, stop the API or UI in its terminal with
+Ctrl+C. See section 5 for the launcher's worker stop/restart behavior.
+
+6. CONFIGURE THE ANALYSIS WORKER (ONE TIME)
+============================================
+
+The launcher starts the worker automatically. Configure these values once
+before using `.\start-local.ps1`. Worker setup requires the root CV
+environment from section 3, the actual model, and FFmpeg/ffprobe. Full-match
+inference can take a long time; use the short CPU smoke test in section 3
+before trying a full match.
+
+To configure the uploaded-video worker, set these entries in
+omniBoard/.env using absolute paths from the recipient's own computer:
+
+    CV_REPO_ROOT=<absolute path to extracted omniBoard-Sportz-client folder>
+    CV_PYTHON_EXECUTABLE=<absolute path to its CV Python 3.10 executable>
+    CV_ENTRYPOINT=main.py
+    CV_DEFAULT_MODEL=models/best.pt
+    CV_DEFAULT_BACKEND=auto
+    DATABASE_URL=sqlite:///./sql_app.db
+    LOCAL_DATA_DIR=local-data
+
+Python executable path examples:
+
+  Windows: <project>\.venv-1\Scripts\python.exe
+  macOS/Linux: <project>/.venv-1/bin/python
+
+Manual recovery alternative: if you are starting the API and UI yourself,
+start the worker in a separate terminal from `omniBoard/backend`, with the
+same DATABASE_URL and LOCAL_DATA_DIR as the API:
+
+Windows PowerShell:
+
+    Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client\omniBoard\backend"
+    $env:DATABASE_URL = "sqlite:///./sql_app.db"
+    $env:LOCAL_DATA_DIR = "local-data"
+    uv run python -m app.worker
+
+macOS/Linux Terminal:
+
+    cd "$HOME/Downloads/omniBoard-Sportz-client/omniBoard/backend"
+    export DATABASE_URL="sqlite:///./sql_app.db"
+    export LOCAL_DATA_DIR=local-data
+    uv run python -m app.worker
+
+The worker processes one analysis at a time. FFmpeg and ffprobe must be
+available on PATH and FFmpeg must include H.264/libx264 support. CPU inference
+is available but can be slow. The code can select CUDA on compatible NVIDIA
+Windows/Linux systems when the installed PyTorch supports it. The current
+inference code does not select or expose Apple MPS; use CPU on macOS unless
+another supported device path has been separately validated.
+
+7. UPDATES, DATABASE, AND SUPPORT
+=================================
+
+The recipient's .venv and .venv-1 folders are local generated environments;
+they are not part of the transferable application data. Keep customer data
+and the SQLite database backed up separately from the install ZIP. Never
+replace a populated database or .env with files from a later ZIP.
+
+If a future release changes backend dependencies, run `uv sync --frozen
+--package app` from the `omniBoard` directory. Review and back up the database
+before applying migrations with `uv run alembic upgrade head` from
+`omniBoard/backend`.
+
+TROUBLESHOOTING
+---------------
+
+  * "File not found" after extraction: verify the complete folder tree in
+    section 1 and that commands point at the actual extracted folder.
+  * uv says VIRTUAL_ENV points to the wrong environment: for backend commands,
+    open a fresh terminal and use `uv run`; do not activate `.venv-1`. The
+    backend is Python 3.14+, while the CV environment is Python 3.10.
+  * "uv trampoline failed to canonicalize script path": use
+    `uv run python -m fastapi ...` for the API, as shown above.
+  * API health fails: read the API terminal output, confirm migrations ran,
+    verify omniBoard/.env exists and has non-placeholder secrets, and confirm
+    port 8000 is not already occupied.
+  * CV worker cannot find the model/interpreter: check the absolute
+    `CV_REPO_ROOT` and `CV_PYTHON_EXECUTABLE` paths in `omniBoard/.env`. The
+    executable must point to the CV Python 3.10 environment from section 3.
+  * Root CLI cannot open its input video: verify the path after `--video`;
+    the sample videos mentioned in README are not included.
+  * Video upload stays queued: start the worker and confirm it uses the same
+    database and local-data directory as the API.
+  * FFmpeg/ffprobe not found: install them, reopen the terminal, and verify
+    `ffmpeg -version` and `ffprobe -version`.
+  * Port 8000 or 5174 is occupied: close the existing application process or
+    use its current URL; do not start a duplicate server.
+  * Permission or disk-space errors: keep the extracted project in a folder
+    writable by the recipient and check free space for uploads and outputs.
+
+PLATFORM NOTE
+-------------
+
+These commands are intended for a local development setup. macOS/Linux
+commands and hardware acceleration depend on the recipient's OS, drivers, and
+selected PyTorch build; verify those on the target machine.

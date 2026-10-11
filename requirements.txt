@@ -1,0 +1,11 @@
+ultralytics
+numpy
+scipy
+opencv-python
+matplotlib
+pytesseract
+scikit-learn
+PyYAML
+torch
+torchvision
+pytest

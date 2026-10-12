@@ -20,10 +20,18 @@ client.setConfig({
 })
 
 const handleApiError = (error: Error) => {
-  if (
-    error instanceof AxiosError &&
-    [401, 403].includes(error.response?.status ?? 0)
-  ) {
+  if (!(error instanceof AxiosError)) return
+  const responseData: unknown = error.response?.data
+  const detail =
+    responseData !== null &&
+    typeof responseData === "object" &&
+    "detail" in responseData
+      ? responseData.detail
+      : undefined
+  const status = error.response?.status
+  const isInvalidToken =
+    status === 403 && detail === "Could not validate credentials"
+  if (status === 401 || isInvalidToken) {
     localStorage.removeItem("access_token")
     window.location.href = "/login"
   }

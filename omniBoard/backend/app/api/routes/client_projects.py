@@ -44,7 +44,7 @@ def _project_belongs_to_another_user(
 
 
 def _project_summary(project: Project) -> dict[str, str]:
-    return {
+    summary = {
         "id": project.client_id or str(project.id),
         "type": project.type,
         "kind": project.kind,
@@ -52,6 +52,10 @@ def _project_summary(project: Project) -> dict[str, str]:
         "createdAt": project.created_at.isoformat(),
         "updatedAt": project.updated_at.isoformat(),
     }
+    workspace = project.payload.get("workspace")
+    if isinstance(workspace, str):
+        summary["workspace"] = workspace
+    return summary
 
 
 def _validate_payload(

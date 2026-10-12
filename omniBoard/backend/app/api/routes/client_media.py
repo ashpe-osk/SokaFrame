@@ -1,13 +1,26 @@
 import logging
+from datetime import timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, File, HTTPException, Path, UploadFile, status
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Path,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
+from app.core.cookie_auth import MEDIA_PLAYBACK_COOKIE_NAME
+from app.core.security import create_access_token
 from app.models import Project, Video
 from app.services.video_storage import (
     InvalidVideoFile,
@@ -20,6 +33,7 @@ from app.services.video_storage import (
 logger = logging.getLogger(__name__)
 ProjectType = Literal["board", "media"]
 router = APIRouter(prefix="/projects", tags=["client-media"])
+PLAYBACK_COOKIE_TTL_SECONDS = 15 * 60
 
 
 def _owned_client_project(
@@ -135,3 +149,59 @@ def list_project_videos(
         .order_by(Video.created_at.desc(), Video.id.desc())
     ).all()
     return {"videos": [_video_public(video, project) for video in videos]}
+
+
+@router.get("/{project_type}/{client_id}/videos/{video_id}/content")
+def read_project_video_content(
+    project_type: ProjectType,
+    client_id: Annotated[str, Path(min_length=1, max_length=255)],
+    video_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> FileResponse:
+    project = _owned_client_project(session, current_user.id, project_type, client_id)
+    video = session.get(Video, video_id)
+    if video is None or video.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    data_root = settings.LOCAL_DATA_DIR.expanduser().resolve()
+    video_path = (data_root / video.storage_path).resolve()
+    if not video_path.is_relative_to(data_root) or not video_path.is_file():
+        raise HTTPException(status_code=404, detail="Video file is unavailable")
+
+    return FileResponse(
+        video_path,
+        media_type=video.media_type or "application/octet-stream",
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+@router.post("/{project_type}/{client_id}/videos/{video_id}/playback")
+def create_project_video_playback(
+    project_type: ProjectType,
+    client_id: Annotated[str, Path(min_length=1, max_length=255)],
+    video_id: UUID,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict[str, str]:
+    project = _owned_client_project(session, current_user.id, project_type, client_id)
+    video = session.get(Video, video_id)
+    if video is None or video.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    cookie_path = f"/api/projects/{project_type}/{client_id}/videos"
+    response.set_cookie(
+        key=MEDIA_PLAYBACK_COOKIE_NAME,
+        value=create_access_token(
+            current_user.id,
+            timedelta(seconds=PLAYBACK_COOKIE_TTL_SECONDS),
+        ),
+        max_age=PLAYBACK_COOKIE_TTL_SECONDS,
+        path=cookie_path,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+    return {"url": f"{cookie_path}/{video_id}/content"}

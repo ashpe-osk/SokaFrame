@@ -4,6 +4,7 @@ import { ArrowUpRight, CalendarDays, FolderKanban, Plus } from "lucide-react"
 import { useState } from "react"
 
 import { ProjectsService } from "@/client"
+import { ProjectCategories } from "@/components/Projects/ProjectCategories"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,10 +37,14 @@ function ProjectsPage() {
         .data,
   })
   const createProject = useMutation({
-    mutationFn: () =>
-      ProjectsService.createProject({
-        body: { name: name.trim(), description: description.trim() || null },
-      }),
+    mutationFn: () => {
+      const body = {
+        name: name.trim(),
+        description: description.trim() || null,
+        kind: "cv-analysis" as const,
+      }
+      return ProjectsService.createProject({ body })
+    },
     onSuccess: async ({ data: project }) => {
       showSuccessToast("Project created")
       await queryClient.invalidateQueries({ queryKey: ["projects"] })
@@ -90,6 +95,8 @@ function ProjectsPage() {
           )}
         </div>
       </header>
+
+      <ProjectCategories active="computer-vision" />
 
       <Card className="gap-5 border-border/80 bg-gradient-to-br from-card to-card/70 shadow-md shadow-black/10">
         <CardHeader className="gap-2">

@@ -21,6 +21,8 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutAnalysesAnalysisIdRouteImport } from './routes/_layout.analyses.$analysisId'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout.projects.index'
 import { Route as LayoutProjectsProjectIdRouteImport } from './routes/_layout.projects.$projectId'
+import { Route as LayoutProjectsTacticalBoardRouteImport } from './routes/_layout.projects.tactical-board'
+import { Route as LayoutProjectsTelestratorRouteImport } from './routes/_layout.projects.telestrator'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -82,6 +84,18 @@ const LayoutProjectsProjectIdRoute = LayoutProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProjectsTacticalBoardRoute =
+  LayoutProjectsTacticalBoardRouteImport.update({
+    id: '/projects/tactical-board',
+    path: '/projects/tactical-board',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutProjectsTelestratorRoute =
+  LayoutProjectsTelestratorRouteImport.update({
+    id: '/projects/telestrator',
+    path: '/projects/telestrator',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -94,6 +108,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LayoutSettingsRoute
   '/analyses/$analysisId': typeof LayoutAnalysesAnalysisIdRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/projects/tactical-board': typeof LayoutProjectsTacticalBoardRoute
+  '/projects/telestrator': typeof LayoutProjectsTelestratorRoute
   '/projects/': typeof LayoutProjectsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -107,6 +123,8 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/analyses/$analysisId': typeof LayoutAnalysesAnalysisIdRoute
   '/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/projects/tactical-board': typeof LayoutProjectsTacticalBoardRoute
+  '/projects/telestrator': typeof LayoutProjectsTelestratorRoute
   '/projects': typeof LayoutProjectsIndexRoute
 }
 export interface FileRoutesById {
@@ -122,6 +140,8 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/analyses/$analysisId': typeof LayoutAnalysesAnalysisIdRoute
   '/_layout/projects/$projectId': typeof LayoutProjectsProjectIdRoute
+  '/_layout/projects/tactical-board': typeof LayoutProjectsTacticalBoardRoute
+  '/_layout/projects/telestrator': typeof LayoutProjectsTelestratorRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
 }
 export interface FileRouteTypes {
@@ -137,6 +157,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/analyses/$analysisId'
     | '/projects/$projectId'
+    | '/projects/tactical-board'
+    | '/projects/telestrator'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -150,6 +172,8 @@ export interface FileRouteTypes {
     | '/'
     | '/analyses/$analysisId'
     | '/projects/$projectId'
+    | '/projects/tactical-board'
+    | '/projects/telestrator'
     | '/projects'
   id:
     | '__root__'
@@ -164,6 +188,8 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/analyses/$analysisId'
     | '/_layout/projects/$projectId'
+    | '/_layout/projects/tactical-board'
+    | '/_layout/projects/telestrator'
     | '/_layout/projects/'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +287,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsProjectIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/projects/tactical-board': {
+      id: '/_layout/projects/tactical-board'
+      path: '/projects/tactical-board'
+      fullPath: '/projects/tactical-board'
+      preLoaderRoute: typeof LayoutProjectsTacticalBoardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/telestrator': {
+      id: '/_layout/projects/telestrator'
+      path: '/projects/telestrator'
+      fullPath: '/projects/telestrator'
+      preLoaderRoute: typeof LayoutProjectsTelestratorRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
@@ -271,6 +311,8 @@ interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutAnalysesAnalysisIdRoute: typeof LayoutAnalysesAnalysisIdRoute
   LayoutProjectsProjectIdRoute: typeof LayoutProjectsProjectIdRoute
+  LayoutProjectsTacticalBoardRoute: typeof LayoutProjectsTacticalBoardRoute
+  LayoutProjectsTelestratorRoute: typeof LayoutProjectsTelestratorRoute
   LayoutProjectsIndexRoute: typeof LayoutProjectsIndexRoute
 }
 
@@ -281,6 +323,8 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutAnalysesAnalysisIdRoute: LayoutAnalysesAnalysisIdRoute,
   LayoutProjectsProjectIdRoute: LayoutProjectsProjectIdRoute,
+  LayoutProjectsTacticalBoardRoute: LayoutProjectsTacticalBoardRoute,
+  LayoutProjectsTelestratorRoute: LayoutProjectsTelestratorRoute,
   LayoutProjectsIndexRoute: LayoutProjectsIndexRoute,
 }
 

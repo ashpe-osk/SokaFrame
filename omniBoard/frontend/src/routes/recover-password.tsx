@@ -66,7 +66,9 @@ function RecoverPassword() {
   const mutation = useMutation({
     mutationFn: recoverPassword,
     onSuccess: () => {
-      showSuccessToast("Password recovery email sent successfully")
+      showSuccessToast(
+        "If that email is registered, recovery instructions will be sent.",
+      )
       form.reset()
     },
     onError: handleError.bind(showErrorToast),

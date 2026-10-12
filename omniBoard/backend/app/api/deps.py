@@ -11,7 +11,11 @@ from sqlmodel import Session
 
 from app.core import security
 from app.core.config import settings
-from app.core.cookie_auth import AUTH_COOKIE_NAME, validate_csrf
+from app.core.cookie_auth import (
+    AUTH_COOKIE_NAME,
+    MEDIA_PLAYBACK_COOKIE_NAME,
+    validate_csrf,
+)
 from app.core.db import engine
 from app.models import TokenPayload, User
 
@@ -31,16 +35,23 @@ TokenDep = Annotated[str | None, Depends(reusable_oauth2)]
 
 
 def get_current_user(request: Request, session: SessionDep, token: TokenDep) -> User:
-    cookie_authenticated = token is None
-    if cookie_authenticated:
+    cookie_authenticated = False
+    if token is None:
         token = request.cookies.get(AUTH_COOKIE_NAME)
-        if not token:
+        cookie_authenticated = token is not None
+        if token is None and request.method in ("GET", "HEAD", "OPTIONS"):
+            token = request.cookies.get(MEDIA_PLAYBACK_COOKIE_NAME)
+        if token is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        if request.method not in ("GET", "HEAD", "OPTIONS"):
+        if cookie_authenticated and request.method not in (
+            "GET",
+            "HEAD",
+            "OPTIONS",
+        ):
             validate_csrf(request, settings.SECRET_KEY)
     try:
         payload = jwt.decode(

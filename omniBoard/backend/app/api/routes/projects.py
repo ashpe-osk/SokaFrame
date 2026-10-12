@@ -39,7 +39,10 @@ def read_projects(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
 ) -> ProjectsPublic:
-    base_statement = select(Project).where(Project.owner_id == current_user.id)
+    base_statement = select(Project).where(
+        Project.owner_id == current_user.id,
+        Project.client_id.is_(None),
+    )
     count = session.exec(
         select(func.count()).select_from(base_statement.subquery())
     ).one()

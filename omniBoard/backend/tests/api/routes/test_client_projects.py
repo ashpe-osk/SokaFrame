@@ -61,6 +61,21 @@ def test_client_project_crud_preserves_payload_and_type(client: TestClient) -> N
     assert item["kind"] == "tactical"
     assert item["title"] == payload["title"]
     assert "updatedAt" in item
+    standard_create = client.post(
+        f"{settings.API_V1_STR}/projects/",
+        headers=headers,
+        json={"name": "Computer vision project"},
+    )
+    assert standard_create.status_code == 201, standard_create.text
+    standard_project_id = standard_create.json()["id"]
+    standard_list = client.get(
+        f"{settings.API_V1_STR}/projects/", headers=headers
+    )
+    assert standard_list.status_code == 200
+    assert standard_list.json()["count"] == 1
+    assert [project["id"] for project in standard_list.json()["data"]] == [
+        standard_project_id
+    ]
 
     read = client.get(path, headers=headers)
     assert read.status_code == 200
@@ -86,6 +101,25 @@ def test_client_project_crud_preserves_payload_and_type(client: TestClient) -> N
             "projects"
         ]
     )
+
+
+def test_client_project_list_includes_workspace_tag(client: TestClient) -> None:
+    headers = _create_user_headers(client)
+    project_id = f"telestrator-{uuid4()}"
+    payload = _payload(project_id, "media", "Telestrator")
+    payload["workspace"] = "telestrator"
+    response = client.put(
+        f"{PROJECTS_PREFIX}/media/{project_id}",
+        headers=headers,
+        json={"payload": payload},
+    )
+    assert response.status_code == 200, response.text
+
+    listed = client.get(f"{PROJECTS_PREFIX}/media", headers=headers)
+    project = next(
+        item for item in listed.json()["projects"] if item["id"] == project_id
+    )
+    assert project["workspace"] == "telestrator"
 
 
 def test_client_projects_are_authenticated_and_owner_scoped(

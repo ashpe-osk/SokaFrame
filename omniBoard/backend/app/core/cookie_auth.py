@@ -5,6 +5,7 @@ import secrets
 from fastapi import HTTPException, Request, status
 
 AUTH_COOKIE_NAME = "omniboard_session"
+MEDIA_PLAYBACK_COOKIE_NAME = "omniboard_media_playback"
 CSRF_COOKIE_NAME = "omniboard_csrf"
 CSRF_HEADER_NAME = "X-Omni-CSRF"
 

@@ -122,18 +122,19 @@ SQLite database and `local-data` directory.
 ## 4. Start the React/Vite development server
 
 Use the one-command launcher above for normal local use. To start Vite
-manually, open a second PowerShell window. Set `VITE_API_URL` to the API
-origin, then run the workspace script:
+manually, open a second PowerShell window and run the workspace script:
 
 ```powershell
 Set-Location -LiteralPath "$HOME\Downloads\omniBoard-Sportz-client\omniBoard"
-$env:VITE_API_URL = "http://127.0.0.1:8000"
 npm --workspace=frontend run dev
 ```
 
 Vite uses its default local host and port 5173. Wait for it to print its
 `Local` URL, then open that exact URL in a browser. The default is normally
-`http://localhost:5173/`.
+`http://localhost:5173/`. In development, Vite proxies `/api` requests to
+FastAPI at `http://127.0.0.1:8000`; keep the API server running as well. This
+also lets the frontend work on a different Vite port without changing the
+backend's CORS allowlist.
 
 Do not append `--host 127.0.0.1 --port 5173` to the workspace command shown
 above: npm can consume those options as its own and pass their values to Vite
@@ -196,12 +197,37 @@ React uses the `/api/v1` API and a bearer access token in browser
 `localStorage`; this is different from the standalone frontend's cookie/CSRF
 authentication. Register at `/signup`, then explicitly sign in at `/login`.
 Successful login opens the Dashboard. The React frontend does not share the
-standalone UI's browser session.
+standalone UI's browser session. The app clears the saved token for an HTTP 401
+or the backend's explicit invalid-credentials 403 response; other 403 responses
+do not force a logout.
+Password recovery requires SMTP email delivery to be configured; otherwise the
+API returns an explicit service-unavailable error rather than appearing to send
+a reset link.
 
-The React app currently has Dashboard, Projects, project upload/analysis
-tracking, analysis results, Settings, Items, and an Admin page restricted to
-superusers. CV uploads and their analysis status are managed from each
-project. There is no Tactical Board page yet.
+The React app includes Dashboard, Projects, Settings, Items, and an Admin page
+restricted to superusers. Projects is organized into **Computer Vision**,
+**Tactical Board**, and **Telestrator** categories. Computer Vision projects
+retain the existing video upload and analysis workflow. Tactical Board projects
+provide a separate workspace for formations, player positions, and movement
+plans; board projects are kept separate from the Computer Vision project list.
+Telestrator projects have their own video-analysis workspace.
+The board editor supports player positioning, movement arrows, freehand
+strokes, circles, rectangles, text annotations, erasing, undoing the latest
+drawing, and clearing drawings.
+
+Telestrator projects provide a match-video annotation workspace. Upload one or
+more MP4, MOV, or AVI clips, use playback, volume, keyboard, timeline, and
+frame-step controls, then freeze a frame to create a saved moment. Freeze
+moments are marked on the timeline, can be moved, and automatically pause
+playback while their drawings are displayed for the configured 1–30 seconds.
+Draw freehand marks, lines, configurable solid/curved/lob/marker/bounce arrows,
+styled rings, dashed/hatched/square areas, funnels, or label/plain text. Select
+and drag drawings to move them, adjust shape endpoints, double-click text to
+edit it, and undo or delete annotations and moments. Use **Save annotations**
+to persist drawings and freeze moments to the project. Video uploads and
+playback are authenticated and project-scoped.
+Tactical Board and Telestrator workspaces use the legacy
+`/api/projects/{board|media}` client-project API.
 
 ## Optional production build
 

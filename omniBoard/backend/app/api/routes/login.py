@@ -55,6 +55,12 @@ def recover_password(email: str, session: SessionDep) -> Message:
     """
     Password Recovery
     """
+    if not settings.emails_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Password recovery is unavailable because email delivery is not configured.",
+        )
+
     user = crud.get_user_by_email(session=session, email=email)
 
     # Always return the same response to prevent email enumeration attacks

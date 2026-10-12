@@ -52,8 +52,13 @@ def test_recovery_password(
     with (
         patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
         patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
+        patch(
+            "app.core.config.settings.EMAILS_FROM_EMAIL",
+            "admin@example.com",
+        ),
+        patch("app.api.routes.login.send_email") as send_email,
     ):
-        email = "test@example.com"
+        email = settings.EMAIL_TEST_USER
         r = client.post(
             f"{settings.API_V1_STR}/password-recovery/{email}",
             headers=normal_user_token_headers,
@@ -62,20 +67,43 @@ def test_recovery_password(
         assert r.json() == {
             "message": "If that email is registered, we sent a password recovery link"
         }
+        send_email.assert_called_once()
 
 
 def test_recovery_password_user_not_exits(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
-    email = "jVgQr@example.com"
-    r = client.post(
-        f"{settings.API_V1_STR}/password-recovery/{email}",
-        headers=normal_user_token_headers,
-    )
-    # Should return 200 with generic message to prevent email enumeration attacks
-    assert r.status_code == 200
-    assert r.json() == {
-        "message": "If that email is registered, we sent a password recovery link"
+    with (
+        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
+        patch(
+            "app.core.config.settings.EMAILS_FROM_EMAIL",
+            "admin@example.com",
+        ),
+    ):
+        email = "jVgQr@example.com"
+        r = client.post(
+            f"{settings.API_V1_STR}/password-recovery/{email}",
+            headers=normal_user_token_headers,
+        )
+        # Should return 200 with generic message to prevent email enumeration attacks
+        assert r.status_code == 200
+        assert r.json() == {
+            "message": "If that email is registered, we sent a password recovery link"
+        }
+
+
+def test_recovery_password_requires_email_configuration(client: TestClient) -> None:
+    with (
+        patch("app.core.config.settings.SMTP_HOST", None),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", None),
+    ):
+        response = client.post(
+            f"{settings.API_V1_STR}/password-recovery/nobody@example.com"
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Password recovery is unavailable because email delivery is not configured."
     }
 
 

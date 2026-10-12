@@ -45,7 +45,11 @@ const useAuth = () => {
     const response = await LoginService.loginAccessToken({
       body: data,
     })
-    localStorage.setItem("access_token", response.data.access_token)
+    const accessToken = response.data?.access_token
+    if (typeof accessToken !== "string" || accessToken.length === 0) {
+      throw new Error("The server did not return an access token.")
+    }
+    localStorage.setItem("access_token", accessToken)
   }
 
   const loginMutation = useMutation({

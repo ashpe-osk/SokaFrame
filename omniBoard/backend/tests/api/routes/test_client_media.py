@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.core.cookie_auth import MEDIA_PLAYBACK_COOKIE_NAME
 from app.models import Project, Video
 from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_email, random_lower_string
@@ -101,6 +102,20 @@ def test_authenticated_video_upload_persists_metadata_and_file(
     assert listed.status_code == 200
     assert listed.json()["videos"] == [metadata]
 
+    content = client.get(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{metadata['id']}/content",
+        headers=headers,
+    )
+    assert content.status_code == 200
+    assert content.headers["content-type"] == "video/mp4"
+    assert content.content == MP4_BYTES
+
+    client.cookies.clear()
+    unauthenticated_content = client.get(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{metadata['id']}/content"
+    )
+    assert unauthenticated_content.status_code == 401
+
 
 def test_video_upload_requires_authentication(
     client: TestClient,
@@ -140,6 +155,69 @@ def test_video_upload_enforces_project_ownership(
         ).status_code
         == 404
     )
+
+
+def test_video_content_is_scoped_to_owning_project(
+    client: TestClient,
+    local_data_dir: Path,
+) -> None:
+    owner_headers = _user_headers(client)
+    project_id = _create_client_project(client, owner_headers)
+    upload = _upload(client, owner_headers, project_id)
+    assert upload.status_code == 201, upload.text
+    video_id = upload.json()["id"]
+
+    other_headers = _user_headers(client)
+    other_project_id = _create_client_project(client, other_headers)
+    wrong_project = client.get(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{other_project_id}/videos/{video_id}/content",
+        headers=other_headers,
+    )
+    assert wrong_project.status_code == 404
+
+    wrong_owner = client.get(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{video_id}/content",
+        headers=other_headers,
+    )
+    assert wrong_owner.status_code == 404
+    assert len(list((local_data_dir / "uploads").glob("*.mp4"))) == 1
+
+
+def test_video_playback_uses_short_lived_read_only_cookie(
+    client: TestClient,
+    local_data_dir: Path,
+) -> None:
+    headers = _user_headers(client)
+    project_id = _create_client_project(client, headers)
+    upload = _upload(client, headers, project_id)
+    assert upload.status_code == 201, upload.text
+    video_id = upload.json()["id"]
+    assert len(list((local_data_dir / "uploads").glob("*.mp4"))) == 1
+    client.cookies.clear()
+
+    playback = client.post(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{video_id}/playback",
+        headers=headers,
+    )
+    assert playback.status_code == 200, playback.text
+    assert playback.json()["url"] == (
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{video_id}/content"
+    )
+    cookie = client.cookies.get(MEDIA_PLAYBACK_COOKIE_NAME)
+    assert cookie is not None
+
+    content = client.get(playback.json()["url"])
+    assert content.status_code == 200
+    assert content.content == MP4_BYTES
+
+    denied_write = _upload(client, None, project_id)
+    assert denied_write.status_code == 401
+
+    client.cookies.clear()
+    denied_playback = client.post(
+        f"{CLIENT_PROJECTS_PREFIX}/media/{project_id}/videos/{video_id}/playback"
+    )
+    assert denied_playback.status_code == 401
 
 
 @pytest.mark.parametrize(

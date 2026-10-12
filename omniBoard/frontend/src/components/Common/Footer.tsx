@@ -7,7 +7,7 @@ export function Footer() {
         <p className="text-muted-foreground text-sm">
           <span className="font-medium text-foreground">SokaFrame</span>
           <span className="px-2">·</span>
-          Local football video analysis
+          Football video analysis
         </p>
         <span className="text-xs text-muted-foreground">© {currentYear}</span>
       </div>

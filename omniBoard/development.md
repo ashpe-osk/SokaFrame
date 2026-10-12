@@ -40,7 +40,8 @@ Automatic interactive API documentation with Swagger UI: <http://localhost:8000/
 
 Mailpit: <http://localhost:8025>
 
-The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
+The frontend development server proxies `/api` requests to the backend at
+`http://127.0.0.1:8000`; keep both servers running during local development.
 
 ### Frontend Served by FastAPI
 
